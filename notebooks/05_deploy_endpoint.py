@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 05 Deploy the champion to a real-time Model Serving endpoint
 # MAGIC CPU, scale-to-zero, request/response logged to an inference table. With the online store,
@@ -37,7 +41,7 @@ print("serving version", version)
 # Smoke request: a known card from the feature table.
 uid = spark.table(cfg.card_features).select("card_uid").first()[0]
 req = pd.DataFrame([{
-    "card_uid": uid, "lookup_ts": pd.Timestamp.utcnow().isoformat(),
+    "card_uid": uid, "lookup_ts": pd.Timestamp.now("UTC").tz_localize(None).isoformat(),
     "TransactionAmt": 117.0, "dist1": None, "C1": 1.0, "C2": 1.0, "C5": 0.0, "C6": 1.0,
     "C13": 1.0, "C14": 1.0, "D1": 0.0, "D4": None, "D10": 0.0, "D15": 0.0,
     "ProductCD": "W", "card4": "visa", "card6": "debit", "P_emaildomain": "gmail.com",

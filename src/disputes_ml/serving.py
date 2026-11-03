@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from datetime import timezone
 
 import pandas as pd
 
@@ -49,6 +50,9 @@ def _clean(v):
     if v is None or (isinstance(v, float) and math.isnan(v)):
         return None
     if hasattr(v, "isoformat"):
+    # The model signature has naive timestamps: send UTC without an offset.
+        if getattr(v, "tzinfo", None) is not None:
+            v = v.astimezone(timezone.utc).replace(tzinfo=None)
         return v.isoformat()
     return v.item() if hasattr(v, "item") else v
 
