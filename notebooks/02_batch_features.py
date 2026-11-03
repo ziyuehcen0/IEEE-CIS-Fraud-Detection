@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 02 Batch features -> feature store (offline + online)
 # MAGIC PySpark window features per card over (t - W, t]; written to a Unity Catalog time-series

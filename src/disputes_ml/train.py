@@ -107,6 +107,8 @@ def train_and_register(spark, fe, cfg: Config, use_online_store: bool = True) ->
         reqs = [f"xgboost=={xgb.__version__}", f"pandas=={pd.__version__}",
                 f"numpy=={np.__version__}", "scikit-learn"]
         example = va.drop(columns=[LABEL]).head(5)
+        int_cols = example.select_dtypes("integer").columns
+        example[int_cols] = example[int_cols].astype("float64")
         if use_online_store:
             # Feature spec travels with the model -> Model Serving looks features up by card_uid.
             kw = dict(model=model, flavor=mlflow.pyfunc, training_set=train_set,
@@ -124,9 +126,10 @@ def train_and_register(spark, fe, cfg: Config, use_online_store: bool = True) ->
             )
         run_id = run.info.run_id
 
+
     client = MlflowClient()
-    version = max(int(v.version) for v in client.search_model_versions(
-        f"name='{cfg.uc_model}' and run_id='{run_id}'"))
+    versions = client.search_model_versions(f"name = '{cfg.uc_model}'")
+    version = max(int(v.version) for v in versions if v.run_id == run_id)
     alias = _promote(client, cfg, version, m_va["pr_auc"])
     _write_baseline_table(spark, cfg, baseline, version)
     return {"run_id": run_id, "version": version, "alias": alias, "valid": m_va,

@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 04 Train XGBoost, track in MLflow, register in Unity Catalog
 # MAGIC - Point-in-time training set: `FeatureLookup(timestamp_lookup_key="lookup_ts")`, with
@@ -42,3 +46,13 @@ spark.conf.set("spark.sql.session.timeZone", "UTC")
 result = train_and_register(spark, FeatureEngineeringClient(), cfg, use_online_store=USE_ONLINE)
 print(json.dumps(result, indent=2, default=str))
 dbutils.jobs.taskValues.set("model_version", result["version"])
+
+# COMMAND ----------
+
+from mlflow.tracking import MlflowClient
+c = MlflowClient(registry_uri="databricks-uc")
+c.set_registered_model_alias(cfg.uc_model, "champion", 3)
+print(c.get_model_version_by_alias(cfg.uc_model, "champion").version)  # 应打印 3
+
+# COMMAND ----------
+

@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 01 Setup and ingest
 # MAGIC Creates the schema and volume, then splits IEEE-CIS `train_transaction.csv` into

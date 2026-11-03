@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # 03 Parity check: Spark vs the unit-tested pandas reference
 # MAGIC The PySpark feature code and the drift binning were written against a pandas reference
@@ -33,9 +37,12 @@ spark.conf.set("spark.sql.session.timeZone", "UTC")
 
 # COMMAND ----------
 
-# 1. Batch features: sample 300 busy cards, compare every row and column.
-cards = (spark.table(cfg.transactions).groupBy("card_uid").count()
-         .where("count between 5 and 400").orderBy(F.rand(42)).limit(300))
+
+# Collect the sample once: a lazy rand()+limit is re-evaluated by every action and can
+# return a different set of cards each time.
+card_ids = [r.card_uid for r in (spark.table(cfg.transactions).groupBy("card_uid").count()
+            .where("count between 5 and 400").orderBy(F.rand(42)).limit(300).collect())]
+cards = spark.createDataFrame([(c,) for c in card_ids], "card_uid string")
 tx = spark.table(cfg.transactions).join(cards.select("card_uid"), "card_uid")
 
 spark_feats = (compute_card_features(tx)
@@ -104,3 +111,18 @@ for col, kind in [("TransactionAmt", "numeric"), ("dist1", "numeric"), ("P_email
     got = vals.select(spark_bin(F.col(col), {"kind": kind, "bins": bins}).alias("b")).toPandas()["b"]
     assert (got.values == ref_lab.values).all(), col
 print("OK: Spark drift bins == numpy bins")
+
+# COMMAND ----------
+
+from pyspark.sql import functions as F
+
+ft = spark.table(cfg.card_features)
+print("feature table rows:", ft.count(), "| silver rows:", spark.table(cfg.transactions).count())
+print("duplicate PK groups:", ft.groupBy("card_uid", "feature_ts").count().where("count > 1").count())
+
+extra = table.merge(b[key], on=key, how="left", indicator=True).query("_merge == 'left_only'")
+print("extra rows:", len(extra))
+display(extra.head(10))
+
+display(spark.sql(f"DESCRIBE HISTORY {cfg.card_features}")
+        .select("version", "timestamp", "operation").limit(5))
