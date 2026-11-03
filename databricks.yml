@@ -1,0 +1,90 @@
+# Databricks Asset Bundle. Deploy with:
+#   databricks bundle validate -t dev
+#   databricks bundle deploy  -t dev
+#   databricks bundle run build_and_deploy -t dev
+bundle:
+  name: chargeback-risk
+
+variables:
+  catalog:
+    default: main
+  schema:
+    default: disputes_ml
+  use_online_store:
+    description: "false on Free Edition (no Lakebase online store)"
+    default: "true"
+  alert_email:
+    default: you@example.com
+
+targets:
+  dev:
+    mode: development
+    default: true
+
+resources:
+  jobs:
+    build_and_deploy:
+      name: chargeback-risk-build
+      tasks:
+        - task_key: ingest
+          notebook_task:
+            notebook_path: ./notebooks/01_setup_and_ingest.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}", source: kaggle}
+        - task_key: features
+          depends_on: [{task_key: ingest}]
+          notebook_task:
+            notebook_path: ./notebooks/02_batch_features.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}",
+                              use_online_store: "${var.use_online_store}"}
+        - task_key: parity
+          depends_on: [{task_key: features}]
+          notebook_task:
+            notebook_path: ./notebooks/03_parity_check.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}"}
+        - task_key: train
+          depends_on: [{task_key: parity}]
+          notebook_task:
+            notebook_path: ./notebooks/04_train_xgboost.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}",
+                              use_online_store: "${var.use_online_store}"}
+        - task_key: deploy
+          depends_on: [{task_key: train}]
+          notebook_task:
+            notebook_path: ./notebooks/05_deploy_endpoint.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}",
+                              use_online_store: "${var.use_online_store}"}
+
+    feature_stream:
+      name: chargeback-risk-stream
+      schedule:
+        quartz_cron_expression: "0 0/5 * * * ?"   # availableNow run every 5 minutes
+        timezone_id: UTC
+        pause_status: PAUSED
+      tasks:
+        - task_key: stream
+          notebook_task:
+            notebook_path: ./notebooks/06_stream_features.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}", serverless: "true"}
+
+    replay:
+      name: chargeback-risk-replay
+      tasks:
+        - task_key: replay
+          notebook_task:
+            notebook_path: ./notebooks/07_replay_live.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}",
+                              use_online_store: "${var.use_online_store}"}
+
+    drift_monitor:
+      name: chargeback-risk-monitor
+      email_notifications:
+        on_failure: ["${var.alert_email}"]
+      schedule:
+        quartz_cron_expression: "0 30 6 * * ?"
+        timezone_id: Europe/London
+        pause_status: PAUSED
+      tasks:
+        - task_key: drift
+          notebook_task:
+            notebook_path: ./notebooks/08_drift_monitor.py
+            base_parameters: {catalog: "${var.catalog}", schema: "${var.schema}"}

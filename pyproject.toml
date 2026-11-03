@@ -1,0 +1,24 @@
+[project]
+name = "disputes-ml"
+version = "0.1.0"
+description = "Chargeback-risk model on Databricks: PySpark + Structured Streaming features, feature store, XGBoost/MLflow, Model Serving, drift monitoring"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pandas", "scikit-learn"]
+
+[project.optional-dependencies]
+databricks = [
+  "pyspark>=3.5",
+  "delta-spark",
+  "xgboost>=2.0",
+  "mlflow>=2.16",
+  "databricks-feature-engineering>=0.13.0",
+  "databricks-sdk>=0.40",
+]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
